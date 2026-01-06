@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-nunito antialiased bg-blue-50;
+  }
+}
+
+@layer components {
+  .kawaii-card {
+    @apply rounded-3xl shadow-kawaii bg-white p-6 transition-all duration-300 hover:shadow-kawaii-lg;
+  }
+  
+  .kawaii-button {
+    @apply rounded-3xl px-6 py-3 font-nunito font-semibold shadow-kawaii transition-all duration-300 hover:shadow-kawaii-lg active:scale-95;
+  }
+  
+  .kawaii-input {
+    @apply rounded-3xl border-2 border-pink-pastel px-4 py-3 font-nunito focus:outline-none focus:ring-2 focus:ring-purple-pastel focus:border-transparent bg-white;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7), 0 0 0 0 rgba(255, 209, 227, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(139, 92, 246, 0), 0 0 0 20px rgba(255, 209, 227, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0), 0 0 0 0 rgba(255, 209, 227, 0);
+  }
+}

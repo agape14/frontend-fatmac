@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { vendorService } from '../services/vendorService';
@@ -12,6 +13,16 @@ const AdminVendors = () => {
   const [error, setError] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
+  const [editingVendor, setEditingVendor] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    phone_number: '',
+    whatsapp_number: '',
+    business_description: '',
+    business_address: '',
+  });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadVendors();
@@ -48,6 +59,80 @@ const AdminVendors = () => {
       loadPendingCount();
     } catch (err) {
       setError(err.response?.data?.message || 'Error al actualizar estado');
+    }
+  };
+
+  const handleEditClick = (vendor) => {
+    setEditingVendor(vendor);
+    setEditFormData({
+      name: vendor.name || '',
+      phone_number: vendor.phone_number || '',
+      whatsapp_number: vendor.whatsapp_number || '',
+      business_description: vendor.business_description || '',
+      business_address: vendor.business_address || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await vendorService.updateByAdmin(editingVendor.id, editFormData);
+      await Swal.fire({
+        icon: 'success',
+        title: '¡Vendedor actualizado!',
+        text: 'Los datos del vendedor se han actualizado exitosamente',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#a855f7',
+        customClass: {
+          popup: 'kawaii-card',
+          confirmButton: 'kawaii-button bg-purple-pastel text-white hover:bg-purple-600',
+        },
+      });
+      setShowEditModal(false);
+      setEditingVendor(null);
+      loadVendors();
+    } catch (err) {
+      console.error('Error al actualizar vendedor:', err);
+      
+      // Mapeo de nombres de campos a español
+      const fieldNames = {
+        name: 'Nombre',
+        phone_number: 'Teléfono',
+        whatsapp_number: 'WhatsApp',
+        business_description: 'Descripción del negocio',
+        business_address: 'Dirección del negocio',
+      };
+      
+      let errorMessage = err.response?.data?.message || 'Error al actualizar vendedor. Por favor, intenta nuevamente.';
+      
+      if (err.response?.data?.errors) {
+        const errors = err.response.data.errors;
+        const errorList = Object.entries(errors)
+          .map(([field, messages]) => {
+            const fieldName = fieldNames[field] || field.replace(/_/g, ' ');
+            const messagesArray = Array.isArray(messages) ? messages : [messages];
+            const messagesText = messagesArray.join(', ');
+            return `<div style="margin-bottom: 8px;"><strong style="color: #dc2626;">${fieldName}:</strong><br><span style="color: #6b7280; margin-left: 12px;">${messagesText}</span></div>`;
+          })
+          .join('');
+        errorMessage = `<div style="text-align: left; padding: 10px;">${errorList}</div>`;
+      }
+      
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error al actualizar vendedor',
+        html: errorMessage,
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'kawaii-card',
+          confirmButton: 'kawaii-button bg-red-500 text-white hover:bg-red-600',
+        },
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -100,6 +185,17 @@ const AdminVendors = () => {
             animate={{ opacity: 1, y: 0 }}
             className="mb-8"
           >
+            <div className="mb-4">
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center gap-2 text-purple-pastel hover:text-purple-600 font-medium mb-4 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Volver al Dashboard
+              </Link>
+            </div>
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-4xl font-bold text-gray-800 mb-2 font-nunito">
@@ -208,6 +304,12 @@ const AdminVendors = () => {
 
                     {/* Acciones */}
                     <div className="flex flex-col gap-3">
+                      <button
+                        onClick={() => handleEditClick(vendor)}
+                        className="kawaii-button bg-blue-500 text-white hover:bg-blue-600"
+                      >
+                        ✏️ Editar
+                      </button>
                       {vendor.status === 'pending' && (
                         <>
                           <button
@@ -294,6 +396,122 @@ const AdminVendors = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de Edición */}
+      {showEditModal && editingVendor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl shadow-kawaii-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+          >
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 font-nunito">
+              ✏️ Editar Vendedor: {editingVendor.name}
+            </h2>
+            
+            <form onSubmit={handleEditSubmit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Nombre *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  className="kawaii-input w-full"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editingVendor.email}
+                  disabled
+                  className="kawaii-input w-full bg-gray-100 cursor-not-allowed"
+                />
+                <p className="text-xs text-gray-500 mt-1">El email no se puede modificar</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Teléfono
+                </label>
+                <input
+                  type="tel"
+                  value={editFormData.phone_number}
+                  onChange={(e) => setEditFormData({ ...editFormData, phone_number: e.target.value })}
+                  className="kawaii-input w-full"
+                  placeholder="999888777"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  WhatsApp
+                </label>
+                <input
+                  type="tel"
+                  value={editFormData.whatsapp_number}
+                  onChange={(e) => setEditFormData({ ...editFormData, whatsapp_number: e.target.value })}
+                  className="kawaii-input w-full"
+                  placeholder="999888777"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Descripción del Negocio
+                </label>
+                <textarea
+                  value={editFormData.business_description}
+                  onChange={(e) => setEditFormData({ ...editFormData, business_description: e.target.value })}
+                  className="kawaii-input w-full"
+                  rows="3"
+                  placeholder="Describe el negocio..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Dirección del Negocio
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.business_address}
+                  onChange={(e) => setEditFormData({ ...editFormData, business_address: e.target.value })}
+                  className="kawaii-input w-full"
+                  placeholder="Dirección completa..."
+                />
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingVendor(null);
+                  }}
+                  className="flex-1 kawaii-button bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  disabled={saving}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 kawaii-button bg-purple-pastel text-white hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
     </PrivateRoute>
   );
 };

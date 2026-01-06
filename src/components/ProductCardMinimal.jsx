@@ -22,6 +22,28 @@ const ProductCardMinimal = ({ product, showBuyButton = false }) => {
     setIsAdding(true);
     try {
       await addToCart(product);
+      await Swal.fire({
+        icon: 'success',
+        title: '¡Agregado!',
+        text: 'Producto agregado al carrito',
+        timer: 1500,
+        showConfirmButton: false,
+        customClass: {
+          popup: 'kawaii-card',
+        },
+      });
+    } catch (error) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'No se pudo agregar',
+        text: error.message || 'Error al agregar producto al carrito',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#a855f7',
+        customClass: {
+          popup: 'kawaii-card',
+          confirmButton: 'kawaii-button bg-purple-pastel text-white hover:bg-purple-600',
+        },
+      });
     } finally {
       setIsAdding(false);
     }
@@ -83,22 +105,43 @@ const ProductCardMinimal = ({ product, showBuyButton = false }) => {
           </h3>
         </Link>
 
-        {/* Precio */}
-        <div className="flex items-center gap-2">
-          {hasDiscount ? (
-            <>
-              <span className="text-xs text-gray-400 line-through">
+        {/* Precio y Stock */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            {hasDiscount ? (
+              <>
+                <span className="text-xs text-gray-400 line-through">
+                  {formatPrice(product.price)}
+                </span>
+                <span className="text-lg font-bold text-gray-900">
+                  {formatPrice(product.discounted_price)}
+                </span>
+              </>
+            ) : (
+              <span className="text-lg font-bold text-gray-900">
                 {formatPrice(product.price)}
               </span>
-              <span className="text-lg font-bold text-gray-900">
-                {formatPrice(product.discounted_price)}
-              </span>
-            </>
-          ) : (
-            <span className="text-lg font-bold text-gray-900">
-              {formatPrice(product.price)}
-            </span>
-          )}
+            )}
+          </div>
+          {/* Stock y Vendedor */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {product.stock !== null && (
+              <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                product.stock > 10 
+                  ? 'bg-green-100 text-green-700' 
+                  : product.stock > 0 
+                  ? 'bg-yellow-100 text-yellow-700' 
+                  : 'bg-red-100 text-red-700'
+              }`}>
+                {product.stock > 0 ? `Stock: ${product.stock}` : 'Sin stock'}
+              </div>
+            )}
+            {product.vendor && (
+              <div className="text-xs text-gray-600 px-2 py-0.5 bg-gray-100 rounded-full">
+                Vendedor: <span className="font-semibold text-purple-pastel">{product.vendor.name}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Botones de acción */}
@@ -106,10 +149,12 @@ const ProductCardMinimal = ({ product, showBuyButton = false }) => {
           {showBuyButton && (
             <button
               onClick={handleAddToCart}
-              disabled={isAdding}
+              disabled={isAdding || (product.stock !== null && product.stock <= 0)}
               className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
                 isAdding
                   ? 'bg-green-500 text-white cursor-not-allowed'
+                  : (product.stock !== null && product.stock <= 0)
+                  ? 'bg-gray-400 text-white cursor-not-allowed'
                   : 'bg-purple-pastel text-white hover:bg-purple-600'
               }`}
             >
@@ -132,7 +177,9 @@ const ProductCardMinimal = ({ product, showBuyButton = false }) => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
-                  <span>Añadir al carrito</span>
+                  <span>
+                    {product.stock !== null && product.stock <= 0 ? 'Sin stock' : 'Añadir al carrito'}
+                  </span>
                 </>
               )}
             </button>
@@ -143,11 +190,26 @@ const ProductCardMinimal = ({ product, showBuyButton = false }) => {
             onClick={async (e) => {
               e.preventDefault();
               e.stopPropagation();
-              if (!product?.vendor?.phone_number) {
+              
+              // Priorizar whatsapp_number del vendedor, luego phone_number, luego configuración global
+              let phoneNumber = product?.vendor?.whatsapp_number || product?.vendor?.phone_number;
+              
+              // Si no hay número del vendedor, usar configuración global
+              if (!phoneNumber) {
+                try {
+                  const { settingsService } = await import('../services/settingsService');
+                  const response = await settingsService.get('whatsapp_number');
+                  phoneNumber = response.data.data?.value;
+                } catch (error) {
+                  console.error('Error al cargar número de WhatsApp:', error);
+                }
+              }
+
+              if (!phoneNumber) {
                 await Swal.fire({
                   icon: 'warning',
                   title: 'Número no disponible',
-                  text: 'El vendedor no tiene número de teléfono registrado',
+                  text: 'No hay número de WhatsApp configurado para contactar',
                   confirmButtonText: 'Entendido',
                   confirmButtonColor: '#a855f7',
                   customClass: {
@@ -158,11 +220,11 @@ const ProductCardMinimal = ({ product, showBuyButton = false }) => {
                 return;
               }
 
-              const phoneNumber = product.vendor.phone_number.replace(/\D/g, '');
+              const cleanPhone = phoneNumber.replace(/\D/g, '');
               const message = encodeURIComponent(
                 `¡Hola! Me interesa el producto: ${product.name} - ${formatPrice(product.discounted_price || product.price)}`
               );
-              const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
+              const whatsappUrl = `https://wa.me/${cleanPhone}?text=${message}`;
               window.open(whatsappUrl, '_blank');
             }}
             className="bg-green-500 text-white hover:bg-green-600 rounded-lg p-2 flex items-center justify-center transition-colors"

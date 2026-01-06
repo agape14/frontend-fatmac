@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 
 const CartContext = createContext();
 
@@ -32,22 +33,82 @@ export const CartProvider = ({ children }) => {
   }, [cart]);
 
   const addToCart = async (product) => {
-    // Simular un pequeño delay para mostrar el loading
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.id === product.id);
-      
-      if (existingItem) {
-        return prevCart.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
+    // Validar que el producto tenga stock
+    if (product.stock !== null && product.stock <= 0) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Sin stock',
+        text: 'Este producto no tiene stock disponible',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#a855f7',
+        customClass: {
+          popup: 'kawaii-card',
+          confirmButton: 'kawaii-button bg-purple-pastel text-white hover:bg-purple-600',
+        },
+      });
+      return;
+    }
+
+    // Validar que todos los productos sean del mismo vendedor
+    const prevCart = [...cart];
+    if (prevCart.length > 0) {
+      const firstProductVendorId = prevCart[0]?.vendor?.id;
+      const newProductVendorId = product?.vendor?.id;
+
+      if (firstProductVendorId && newProductVendorId && firstProductVendorId !== newProductVendorId) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Productos de diferentes vendedores',
+          html: `Tu carrito ya contiene productos del vendedor <strong>${prevCart[0]?.vendor?.name || 'otro vendedor'}</strong>. No puedes añadir productos de <strong>${product?.vendor?.name || 'otro vendedor'}</strong> en la misma compra.<br><br>Finaliza tu compra actual o vacía el carrito para agregar productos de otro vendedor.`,
+          showCancelButton: true,
+          confirmButtonText: 'Vaciar carrito y añadir',
+          cancelButtonText: 'Mantener carrito actual',
+          confirmButtonColor: '#a855f7',
+          cancelButtonColor: '#4b5563',
+          customClass: {
+            popup: 'kawaii-card',
+            confirmButton: 'kawaii-button bg-purple-pastel text-white hover:bg-purple-600 font-semibold px-6 py-3 rounded-xl shadow-md',
+            cancelButton: 'kawaii-button bg-white text-gray-800 hover:bg-gray-50 font-semibold px-6 py-3 rounded-xl border-2 border-gray-400 shadow-md hover:border-gray-500',
+          },
+          buttonsStyling: true,
+        }).then((result) => {
+          if (result.isConfirmed) {
+            clearCart();
+            setCart([{ ...product, quantity: 1 }]);
+            setIsCartOpen(true);
+          }
+        });
+        return;
       }
-      
-      return [...prevCart, { ...product, quantity: 1 }];
-    });
+    }
+
+    const existingItem = prevCart.find((item) => item.id === product.id);
+    
+    // Validar stock disponible
+    if (existingItem) {
+      const newQuantity = existingItem.quantity + 1;
+      if (product.stock !== null && newQuantity > product.stock) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Stock insuficiente',
+          text: `No hay suficiente stock. Stock disponible: ${product.stock}`,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#a855f7',
+          customClass: {
+            popup: 'kawaii-card',
+            confirmButton: 'kawaii-button bg-purple-pastel text-white hover:bg-purple-600',
+          },
+        });
+        return;
+      }
+      setCart(prevCart.map((item) =>
+        item.id === product.id
+          ? { ...item, quantity: newQuantity }
+          : item
+      ));
+    } else {
+      setCart([...prevCart, { ...product, quantity: 1 }]);
+    }
     
     // Abrir el panel del carrito después de agregar
     setIsCartOpen(true);
@@ -57,17 +118,38 @@ export const CartProvider = ({ children }) => {
     setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
   };
 
-  const updateQuantity = (productId, quantity) => {
+  const updateQuantity = async (productId, quantity) => {
     if (quantity <= 0) {
       removeFromCart(productId);
       return;
     }
     
-    setCart((prevCart) =>
-      prevCart.map((item) =>
+    setCart((prevCart) => {
+      const item = prevCart.find((item) => item.id === productId);
+      if (item && item.stock !== null && quantity > item.stock) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Stock insuficiente',
+          text: `No hay suficiente stock. Stock disponible: ${item.stock}`,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#a855f7',
+          customClass: {
+            popup: 'kawaii-card',
+            confirmButton: 'kawaii-button bg-purple-pastel text-white hover:bg-purple-600',
+          },
+        });
+        return prevCart; // No cambiar la cantidad
+      }
+      
+      return prevCart.map((item) =>
         item.id === productId ? { ...item, quantity } : item
-      )
-    );
+      );
+    });
+  };
+
+  const getVendorId = () => {
+    if (cart.length === 0) return null;
+    return cart[0]?.vendor?.id;
   };
 
   const clearCart = () => {
@@ -93,6 +175,7 @@ export const CartProvider = ({ children }) => {
     clearCart,
     getCartTotal,
     getCartCount,
+    getVendorId,
     isCartOpen,
     setIsCartOpen,
   };

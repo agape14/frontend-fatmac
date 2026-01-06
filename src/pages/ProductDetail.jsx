@@ -210,9 +210,22 @@ const ProductDetail = () => {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-4xl font-bold text-purple-pastel">
-                      {formatPrice(product.price)}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      {product.discount_percentage && product.discount_percentage > 0 ? (
+                        <>
+                          <span className="text-2xl text-gray-400 line-through">
+                            {formatPrice(product.price)}
+                          </span>
+                          <span className="text-4xl font-bold text-purple-pastel">
+                            {formatPrice(product.discounted_price || product.price)}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-4xl font-bold text-purple-pastel">
+                          {formatPrice(product.price)}
+                        </span>
+                      )}
+                    </div>
                     {product.condition && (
                       <span className="text-sm px-4 py-2 rounded-full bg-yellow-pastel text-gray-700 font-medium">
                         {product.condition === 'nuevo' ? '✨ Nuevo' : '🔄 Usado'}
@@ -220,10 +233,16 @@ const ProductDetail = () => {
                     )}
                   </div>
 
-                  {product.stock !== undefined && (
-                    <p className="text-sm text-gray-600">
-                      Stock disponible: <span className="font-semibold">{product.stock}</span>
-                    </p>
+                  {product.stock !== null && (
+                    <div className={`inline-block text-sm font-semibold px-3 py-1 rounded-full ${
+                      product.stock > 10 
+                        ? 'bg-green-100 text-green-700' 
+                        : product.stock > 0 
+                        ? 'bg-yellow-100 text-yellow-700' 
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {product.stock > 0 ? `Stock: ${product.stock}` : 'Sin stock'}
+                    </div>
                   )}
 
                   {product.category && (

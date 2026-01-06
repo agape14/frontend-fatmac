@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { productService } from '../services/productService';
@@ -66,7 +67,12 @@ const ManageProducts = () => {
       // Agregar campos del formulario
       Object.keys(formData).forEach(key => {
         if (formData[key] !== '' && formData[key] !== null) {
-          formDataToSend.append(key, formData[key]);
+          // Convertir booleanos a strings para FormData
+          if (key === 'is_new' || key === 'is_featured') {
+            formDataToSend.append(key, formData[key] ? '1' : '0');
+          } else {
+            formDataToSend.append(key, formData[key]);
+          }
         }
       });
 
@@ -94,12 +100,70 @@ const ManageProducts = () => {
       } else {
         await productService.create(formDataToSend);
       }
+      
+      await Swal.fire({
+        icon: 'success',
+        title: '¡Producto guardado!',
+        text: editingProduct ? 'El producto se ha actualizado exitosamente' : 'El producto se ha creado exitosamente',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#a855f7',
+        customClass: {
+          popup: 'kawaii-card',
+          confirmButton: 'kawaii-button bg-purple-pastel text-white hover:bg-purple-600',
+        },
+      });
+      
       setShowModal(false);
       setEditingProduct(null);
       resetForm();
       loadProducts();
     } catch (err) {
-      setError(err.response?.data?.message || 'Error al guardar producto');
+      console.error('Error al guardar producto:', err);
+      
+      // Mapeo de nombres de campos a español
+      const fieldNames = {
+        name: 'Nombre',
+        description: 'Descripción',
+        price: 'Precio',
+        discount_percentage: 'Porcentaje de descuento',
+        stock: 'Stock',
+        condition: 'Condición',
+        category_id: 'Categoría',
+        category: 'Categoría',
+        image_url: 'URL de imagen',
+        images: 'Imágenes',
+        is_new: 'Nuevo',
+        is_featured: 'Destacado',
+      };
+      
+      let errorMessage = err.response?.data?.message || 'Error al guardar producto. Por favor, intenta nuevamente.';
+      
+      if (err.response?.data?.errors) {
+        const errors = err.response.data.errors;
+        const errorList = Object.entries(errors)
+          .map(([field, messages]) => {
+            const fieldName = fieldNames[field] || field.replace(/_/g, ' ');
+            const messagesArray = Array.isArray(messages) ? messages : [messages];
+            const messagesText = messagesArray.join(', ');
+            return `<div style="margin-bottom: 8px;"><strong style="color: #dc2626;">${fieldName}:</strong><br><span style="color: #6b7280; margin-left: 12px;">${messagesText}</span></div>`;
+          })
+          .join('');
+        errorMessage = `<div style="text-align: left; padding: 10px;">${errorList}</div>`;
+      }
+      
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error al guardar producto',
+        html: errorMessage,
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'kawaii-card',
+          confirmButton: 'kawaii-button bg-red-500 text-white hover:bg-red-600',
+        },
+      });
+      
+      setError(errorMessage);
     }
   };
 
@@ -214,14 +278,26 @@ const ManageProducts = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 flex items-center justify-between"
+            className="mb-8"
           >
-            <div>
-              <h1 className="text-4xl font-bold text-gray-800 mb-2 font-nunito">
-                📦 Mis Productos
-              </h1>
-              <p className="text-gray-600">Gestiona tu catálogo de productos</p>
+            <div className="mb-4">
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center gap-2 text-purple-pastel hover:text-purple-600 font-medium mb-4 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Volver al Dashboard
+              </Link>
             </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-4xl font-bold text-gray-800 mb-2 font-nunito">
+                  📦 Mis Productos
+                </h1>
+                <p className="text-gray-600">Gestiona tu catálogo de productos</p>
+              </div>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -233,6 +309,7 @@ const ManageProducts = () => {
             >
               + Nuevo Producto
             </motion.button>
+            </div>
           </motion.div>
 
           {error && (
@@ -271,13 +348,35 @@ const ManageProducts = () => {
                   transition={{ delay: index * 0.1 }}
                   className="kawaii-card"
                 >
-                  {product.image_url && (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-48 object-cover rounded-2xl mb-4"
-                    />
-                  )}
+                  {(() => {
+                    // Priorizar primera imagen del array, luego image_url, luego placeholder
+                    let imageUrl = null;
+                    if (product.images && product.images.length > 0) {
+                      imageUrl = product.images[0].url || (typeof product.images[0] === 'string' ? product.images[0] : null);
+                      if (!imageUrl && product.images[0].path) {
+                        imageUrl = product.images[0].path;
+                        imageUrl = imageUrl.startsWith('http') ? imageUrl : `${import.meta.env.VITE_API_URL}/storage/${imageUrl}`;
+                      }
+                    }
+                    if (!imageUrl) {
+                      imageUrl = product.image_url;
+                    }
+                    
+                    return imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt={product.name}
+                        className="w-full h-48 object-cover rounded-2xl mb-4"
+                        onError={(e) => {
+                          e.target.src = '/placeholder.jpg';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-48 bg-gradient-to-br from-pink-pastel to-purple-pastel flex items-center justify-center rounded-2xl mb-4">
+                        <span className="text-6xl">🛍️</span>
+                      </div>
+                    );
+                  })()}
                   <h3 className="text-xl font-bold text-gray-800 mb-2">{product.name}</h3>
                   <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                     {product.description}
@@ -289,7 +388,7 @@ const ManageProducts = () => {
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       product.stock > 0 ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'
                     }`}>
-                      {product.stock > 0 ? `${product.stock} en stock` : 'Sin stock'}
+                      {product.stock > 0 ? `Stock: ${product.stock}` : 'Sin stock'}
                     </span>
                   </div>
                   <div className="flex gap-2">

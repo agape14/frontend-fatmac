@@ -1,8 +1,24 @@
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { settingsService } from '../services/settingsService';
 
 const Contacto = () => {
+  const [phoneNumber, setPhoneNumber] = useState('999999999');
+
+  useEffect(() => {
+    const loadWhatsAppNumber = async () => {
+      try {
+        const response = await settingsService.get('whatsapp_number');
+        setPhoneNumber(response.data.data?.value || import.meta.env.VITE_WHATSAPP_NUMBER || '999999999');
+      } catch (error) {
+        console.error('Error al cargar número de WhatsApp:', error);
+        setPhoneNumber(import.meta.env.VITE_WHATSAPP_NUMBER || '999999999');
+      }
+    };
+    loadWhatsAppNumber();
+  }, []);
+
   const handleWhatsAppClick = () => {
-    const phoneNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '999999999';
     const cleanPhone = phoneNumber.replace(/\D/g, '');
     const message = encodeURIComponent('¡Hola! Me gustaría contactar con FATMAC Shop');
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${message}`;

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Swal from 'sweetalert2';
 import { homeCmsService } from '../services/homeCmsService';
@@ -282,6 +283,17 @@ const HomeCms = () => {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-3xl shadow-kawaii-lg p-8"
         >
+          <div className="mb-6">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 text-purple-pastel hover:text-purple-600 font-medium transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Volver al Dashboard
+            </Link>
+          </div>
           <h1 className="text-4xl font-bold text-gray-800 mb-8 font-nunito">
             🎨 Administración del Home - CMS
           </h1>

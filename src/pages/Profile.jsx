@@ -2,16 +2,21 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
+import { vendorService } from '../services/vendorService';
 import PrivateRoute from '../components/PrivateRoute';
 import Swal from 'sweetalert2';
 
 const Profile = () => {
-  const { user, setUser } = useAuth();
+  const { user, setUser, isVendor } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [loadingQr, setLoadingQr] = useState({ yape: false, plin: false });
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone_number: '',
+    whatsapp_number: '',
+    business_description: '',
+    business_address: '',
   });
 
   useEffect(() => {
@@ -20,6 +25,9 @@ const Profile = () => {
         name: user.name || '',
         email: user.email || '',
         phone_number: user.phone_number || '',
+        whatsapp_number: user.whatsapp_number || '',
+        business_description: user.business_description || '',
+        business_address: user.business_address || '',
       });
     }
   }, [user]);
@@ -36,7 +44,13 @@ const Profile = () => {
     setLoading(true);
 
     try {
-      const response = await authService.updateProfile(formData);
+      let response;
+      if (isVendor) {
+        // Si es vendedor, actualizar perfil del vendedor
+        response = await vendorService.updateProfile(formData);
+      } else {
+        response = await authService.updateProfile(formData);
+      }
       
       // Actualizar el usuario en el contexto
       setUser(response.data.data);
@@ -56,10 +70,27 @@ const Profile = () => {
       const errorMessage = error.response?.data?.message || 'Error al actualizar el perfil';
       const errors = error.response?.data?.errors;
 
-      let errorHtml = `<p>${errorMessage}</p>`;
+      // Mapeo de nombres de campos a español
+      const fieldNames = {
+        name: 'Nombre',
+        email: 'Correo electrónico',
+        phone_number: 'Teléfono',
+        whatsapp_number: 'WhatsApp',
+        business_description: 'Descripción del negocio',
+        business_address: 'Dirección del negocio',
+      };
+      
+      let errorHtml = `<p style="margin-bottom: 10px;">${errorMessage}</p>`;
       if (errors) {
-        const errorList = Object.values(errors).flat().map(err => `<li>${err}</li>`).join('');
-        errorHtml = `<p>${errorMessage}</p><ul class="list-disc list-inside mt-2">${errorList}</ul>`;
+        const errorList = Object.entries(errors)
+          .map(([field, messages]) => {
+            const fieldName = fieldNames[field] || field.replace(/_/g, ' ');
+            const messagesArray = Array.isArray(messages) ? messages : [messages];
+            const messagesText = messagesArray.join(', ');
+            return `<div style="margin-bottom: 8px;"><strong style="color: #dc2626;">${fieldName}:</strong><br><span style="color: #6b7280; margin-left: 12px;">${messagesText}</span></div>`;
+          })
+          .join('');
+        errorHtml = `<div style="text-align: left; padding: 10px;">${errorHtml}${errorList}</div>`;
       }
 
       await Swal.fire({
@@ -146,6 +177,160 @@ const Profile = () => {
                   placeholder="999999999"
                 />
               </div>
+
+              {/* Campos adicionales para vendedores */}
+              {isVendor && (
+                <>
+                  <div>
+                    <label htmlFor="whatsapp_number" className="block text-sm font-semibold text-gray-700 mb-2">
+                      WhatsApp
+                    </label>
+                    <input
+                      type="tel"
+                      id="whatsapp_number"
+                      name="whatsapp_number"
+                      value={formData.whatsapp_number}
+                      onChange={handleChange}
+                      className="w-full kawaii-input"
+                      placeholder="+51 999 999 999"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="business_address" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Dirección del Negocio
+                    </label>
+                    <input
+                      type="text"
+                      id="business_address"
+                      name="business_address"
+                      value={formData.business_address}
+                      onChange={handleChange}
+                      className="w-full kawaii-input"
+                      placeholder="Dirección donde se encuentra tu negocio"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="business_description" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Descripción del Negocio
+                    </label>
+                    <textarea
+                      id="business_description"
+                      name="business_description"
+                      value={formData.business_description}
+                      onChange={handleChange}
+                      className="w-full kawaii-input min-h-[100px]"
+                      placeholder="Cuéntanos sobre tu negocio..."
+                    />
+                  </div>
+
+                  {/* Carga de QR Codes */}
+                  <div className="border-t border-gray-200 pt-6 mt-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">📱 Códigos QR para Pagos</h3>
+                    
+                    <div className="space-y-4">
+                      {/* Yape QR */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-semibold text-gray-700">
+                          QR Yape
+                        </label>
+                        {user?.yape_qr && (
+                          <div className="mb-2">
+                            <img 
+                              src={user.yape_qr.startsWith('http') ? user.yape_qr : `${import.meta.env.VITE_API_URL}/storage/${user.yape_qr}`} 
+                              alt="QR Yape" 
+                              className="w-32 h-32 object-contain border rounded-lg" 
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files[0];
+                            if (!file) return;
+                            setLoadingQr({ ...loadingQr, yape: true });
+                            try {
+                              const response = await vendorService.uploadQr('yape', file);
+                              setUser({ ...user, yape_qr: response.data.data.qr_url });
+                              await Swal.fire({
+                                icon: 'success',
+                                title: 'QR actualizado',
+                                text: 'Código QR de Yape actualizado exitosamente',
+                                timer: 2000,
+                                showConfirmButton: false,
+                              });
+                            } catch (error) {
+                              await Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: error.response?.data?.message || 'Error al subir QR',
+                              });
+                            } finally {
+                              setLoadingQr({ ...loadingQr, yape: false });
+                            }
+                          }}
+                          disabled={loadingQr.yape}
+                          className="w-full kawaii-input"
+                        />
+                      </div>
+
+                      {/* Plin QR */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-semibold text-gray-700">
+                          QR Plin
+                        </label>
+                        {user?.plin_qr && (
+                          <div className="mb-2">
+                            <img 
+                              src={user.plin_qr.startsWith('http') ? user.plin_qr : `${import.meta.env.VITE_API_URL}/storage/${user.plin_qr}`} 
+                              alt="QR Plin" 
+                              className="w-32 h-32 object-contain border rounded-lg" 
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files[0];
+                            if (!file) return;
+                            setLoadingQr({ ...loadingQr, plin: true });
+                            try {
+                              const response = await vendorService.uploadQr('plin', file);
+                              setUser({ ...user, plin_qr: response.data.data.qr_url });
+                              await Swal.fire({
+                                icon: 'success',
+                                title: 'QR actualizado',
+                                text: 'Código QR de Plin actualizado exitosamente',
+                                timer: 2000,
+                                showConfirmButton: false,
+                              });
+                            } catch (error) {
+                              await Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: error.response?.data?.message || 'Error al subir QR',
+                              });
+                            } finally {
+                              setLoadingQr({ ...loadingQr, plin: false });
+                            }
+                          }}
+                          disabled={loadingQr.plin}
+                          className="w-full kawaii-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="pt-4">
                 <motion.button

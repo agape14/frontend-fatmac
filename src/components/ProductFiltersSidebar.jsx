@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { categoryService } from '../services/categoryService';
+import { vendorService } from '../services/vendorService';
 
 const ProductFiltersSidebar = ({ filters, onFiltersChange }) => {
   const [categories, setCategories] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loadingVendors, setLoadingVendors] = useState(true);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -18,6 +21,20 @@ const ProductFiltersSidebar = ({ filters, onFiltersChange }) => {
     };
 
     fetchCategories();
+
+    // Cargar vendedores aprobados
+    const fetchVendors = async () => {
+      try {
+        const response = await vendorService.getApproved();
+        setVendors(response.data.data || []);
+      } catch (err) {
+        console.error('Error loading vendors:', err);
+      } finally {
+        setLoadingVendors(false);
+      }
+    };
+
+    fetchVendors();
   }, []);
 
   const handleCategoryChange = (categoryId) => {
@@ -61,6 +78,23 @@ const ProductFiltersSidebar = ({ filters, onFiltersChange }) => {
     });
   };
 
+  const handleVendorChange = (vendorId) => {
+    const currentVendors = Array.isArray(filters.vendor_id) 
+      ? filters.vendor_id 
+      : filters.vendor_id 
+        ? [filters.vendor_id] 
+        : [];
+    
+    const newVendors = currentVendors.includes(vendorId)
+      ? currentVendors.filter(id => id !== vendorId)
+      : [...currentVendors, vendorId];
+    
+    onFiltersChange({
+      ...filters,
+      vendor_id: newVendors.length > 0 ? (newVendors.length === 1 ? newVendors[0] : newVendors) : undefined,
+    });
+  };
+
   const handleSizeChange = (size) => {
     // Tallas - esto puede ser un array o campo específico dependiendo de la estructura
     // Por ahora lo dejamos como está para implementar después
@@ -81,9 +115,16 @@ const ProductFiltersSidebar = ({ filters, onFiltersChange }) => {
       ? [filters.condition] 
       : [];
   
+  const currentVendors = Array.isArray(filters.vendor_id) 
+    ? filters.vendor_id 
+    : filters.vendor_id 
+      ? [filters.vendor_id] 
+      : [];
+
   const hasActiveFilters = 
     currentCategories.length > 0 ||
     currentConditions.length > 0 ||
+    currentVendors.length > 0 ||
     filters.max_price ||
     filters.min_price;
 
@@ -132,6 +173,38 @@ const ProductFiltersSidebar = ({ filters, onFiltersChange }) => {
               );
             })}
           </div>
+        )}
+      </div>
+
+      {/* Vendedores */}
+      <div className="mb-6">
+        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <svg className="w-4 h-4 text-purple-pastel" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          Vendedores
+        </h4>
+        {loadingVendors ? (
+          <div className="text-sm text-gray-500">Cargando...</div>
+        ) : vendors.length > 0 ? (
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {vendors.map((vendor) => {
+              const isChecked = currentVendors.includes(vendor.id);
+              return (
+                <label key={vendor.id} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => handleVendorChange(vendor.id)}
+                    className="w-4 h-4 text-purple-pastel border-gray-300 rounded focus:ring-purple-pastel"
+                  />
+                  <span className="text-sm text-gray-700">{vendor.name}</span>
+                </label>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500">No hay vendedores disponibles</div>
         )}
       </div>
 

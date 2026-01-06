@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { orderService } from '../services/orderService';
 import { authService } from '../services/authService';
+import { settingsService } from '../services/settingsService';
 import Swal from 'sweetalert2';
 
 // Checkout público - no requiere autenticación
@@ -24,6 +25,8 @@ const Checkout = () => {
   });
   const [voucherFile, setVoucherFile] = useState(null);
   const [voucherPreview, setVoucherPreview] = useState(null);
+  const [qrUrl, setQrUrl] = useState(null);
+  const [loadingQr, setLoadingQr] = useState(false);
 
   useEffect(() => {
     // Scroll al inicio al cargar
@@ -32,8 +35,40 @@ const Checkout = () => {
     // Si el carrito está vacío, redirigir
     if (cart.length === 0) {
       navigate('/cart');
+      return;
     }
   }, [cart.length, navigate]);
+
+  // Cargar QR cuando cambie el método de pago o el carrito
+  useEffect(() => {
+    if (cart.length > 0) {
+      loadVendorQr();
+    }
+  }, [formData.payment_method]);
+
+  const loadVendorQr = async () => {
+    if (cart.length === 0) return;
+
+    // Obtener el vendedor del primer producto
+    const vendorId = cart[0]?.vendor?.id;
+    if (!vendorId) return;
+
+    setLoadingQr(true);
+    try {
+      const response = await orderService.getVendorQr(vendorId, formData.payment_method);
+      setQrUrl(response.data.data?.qr_url || null);
+    } catch (error) {
+      console.error('Error al cargar QR:', error);
+      setQrUrl(null);
+    } finally {
+      setLoadingQr(false);
+    }
+  };
+
+  // Recargar QR cuando cambie el método de pago
+  useEffect(() => {
+    loadVendorQr();
+  }, [formData.payment_method]);
 
   // Pre-llenar formulario con datos del usuario si está autenticado
   useEffect(() => {
@@ -242,7 +277,8 @@ const Checkout = () => {
                             field === 'customer_phone' ? 'Teléfono' :
                             field === 'customer_address' ? 'Dirección' :
                             field === 'payment_method' ? 'Método de pago' :
-                            field === 'product_id' ? 'Producto' : field;
+                            field === 'product_id' ? 'Producto' :
+                            field === 'products' ? 'Productos' : field;
             
             // Traducir mensajes comunes al español
             const translatedMessages = Array.isArray(messages) 
@@ -467,13 +503,41 @@ const Checkout = () => {
                 </label>
               </div>
 
-              {/* QR Code Placeholder */}
+              {/* QR Code */}
               <div className="mt-6 p-6 bg-gray-100 rounded-2xl text-center">
-                <div className="w-64 h-64 bg-white rounded-xl mx-auto flex items-center justify-center mb-4">
-                  <span className="text-6xl">📱</span>
-                </div>
+                {loadingQr ? (
+                  <div className="w-64 h-64 bg-white rounded-xl mx-auto flex items-center justify-center mb-4">
+                    <motion.svg
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      className="w-12 h-12 text-purple-pastel"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </motion.svg>
+                  </div>
+                ) : qrUrl ? (
+                  <div className="w-64 h-64 bg-white rounded-xl mx-auto flex items-center justify-center mb-4 p-4">
+                    <img
+                      src={qrUrl}
+                      alt={`QR ${formData.payment_method === 'yape' ? 'Yape' : 'Plin'}`}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-64 h-64 bg-white rounded-xl mx-auto flex items-center justify-center mb-4">
+                    <div className="text-center">
+                      <span className="text-6xl mb-2 block">📱</span>
+                      <p className="text-sm text-gray-600">
+                        El vendedor no ha configurado el código QR de {formData.payment_method === 'yape' ? 'Yape' : 'Plin'}
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <p className="text-sm text-gray-600">
-                  Escanea el código QR con {formData.payment_method === 'yape' ? 'Yape' : 'Plin'}
+                  Escanea el código QR con {formData.payment_method === 'yape' ? 'Yape' : 'Plin'} para realizar el pago
                 </p>
               </div>
 
@@ -507,13 +571,34 @@ const Checkout = () => {
                 Resumen del Pedido
               </h2>
               <div className="space-y-4">
-                {cart.map((item) => (
+                {cart.map((item) => {
+                  // Obtener la primera imagen del array, luego image_url, luego placeholder
+                  let imageUrl = null;
+                  if (item.images && item.images.length > 0) {
+                    // Si es un objeto con url
+                    imageUrl = item.images[0].url || (typeof item.images[0] === 'string' ? item.images[0] : null);
+                    // Si no tiene url pero tiene path
+                    if (!imageUrl && item.images[0].path) {
+                      imageUrl = item.images[0].path;
+                    }
+                  }
+                  if (!imageUrl) {
+                    imageUrl = item.image_url;
+                  }
+                  const displayImage = imageUrl 
+                    ? (imageUrl.startsWith('http') ? imageUrl : `${import.meta.env.VITE_API_URL}/storage/${imageUrl}`)
+                    : '/placeholder.jpg';
+                  
+                  return (
                   <div key={item.id} className="flex items-center justify-between border-b border-gray-200 pb-4">
                     <div className="flex items-center gap-4">
                       <img
-                        src={item.image_url || '/placeholder.jpg'}
+                        src={displayImage}
                         alt={item.name}
                         className="w-16 h-16 object-cover rounded-xl"
+                        onError={(e) => {
+                          e.target.src = '/placeholder.jpg';
+                        }}
                       />
                       <div>
                         <p className="font-semibold">{item.name}</p>
@@ -524,7 +609,8 @@ const Checkout = () => {
                       {formatPrice((item.discounted_price || item.price) * item.quantity)}
                     </p>
                   </div>
-                ))}
+                  );
+                })}
                 <div className="pt-4 border-t-2 border-gray-200">
                   <div className="flex justify-between items-center">
                     <span className="text-xl font-bold text-gray-800">Total:</span>

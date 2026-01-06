@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { orderService } from '../services/orderService';
@@ -277,6 +277,17 @@ const Orders = () => {
             animate={{ opacity: 1, y: 0 }}
             className="mb-8"
           >
+            <div className="mb-4">
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center gap-2 text-purple-pastel hover:text-purple-600 font-medium mb-4 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Volver al Dashboard
+              </Link>
+            </div>
             <h1 className="text-4xl font-bold text-gray-800 mb-2 font-nunito">
               🛒 Pedidos
             </h1>

@@ -4,9 +4,10 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { dashboardService } from '../services/dashboardService';
 import PrivateRoute from '../components/PrivateRoute';
+import WhatsAppSettings from '../components/WhatsAppSettings';
 
 const Dashboard = () => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isVendor } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -82,7 +83,7 @@ const Dashboard = () => {
           </motion.div>
 
           {/* Navegación rápida */}
-          <div className={`grid grid-cols-1 ${isAdmin ? 'md:grid-cols-5' : 'md:grid-cols-3'} gap-4 mb-8`}>
+          <div className={`grid grid-cols-1 ${isAdmin ? 'md:grid-cols-6' : isVendor ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4 mb-8`}>
             {isAdmin && (
               <>
                 <Link to="/admin/vendors" className="kawaii-card hover:shadow-kawaii-lg transition-all">
@@ -113,6 +114,22 @@ const Dashboard = () => {
                 <div className="text-4xl mb-2">🛒</div>
                 <h3 className="font-semibold text-gray-800">Pedidos</h3>
                 <p className="text-sm text-gray-600">Ver y gestionar pedidos</p>
+              </div>
+            </Link>
+            {isVendor && (
+              <Link to="/profile" className="kawaii-card hover:shadow-kawaii-lg transition-all">
+                <div className="text-center">
+                  <div className="text-4xl mb-2">💳</div>
+                  <h3 className="font-semibold text-gray-800">Configurar QR</h3>
+                  <p className="text-sm text-gray-600">Códigos Yape y Plin</p>
+                </div>
+              </Link>
+            )}
+            <Link to="/profile" className="kawaii-card hover:shadow-kawaii-lg transition-all">
+              <div className="text-center">
+                <div className="text-4xl mb-2">👤</div>
+                <h3 className="font-semibold text-gray-800">Mi Perfil</h3>
+                <p className="text-sm text-gray-600">Editar perfil</p>
               </div>
             </Link>
             <Link to="/" className="kawaii-card hover:shadow-kawaii-lg transition-all">
@@ -283,6 +300,17 @@ const Dashboard = () => {
                   </p>
                 </div>
               </div>
+            </motion.div>
+          )}
+
+          {/* Configuración de WhatsApp (solo admin) */}
+          {isAdmin && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9 }}
+            >
+              <WhatsAppSettings />
             </motion.div>
           )}
         </div>

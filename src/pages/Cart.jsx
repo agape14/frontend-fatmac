@@ -60,6 +60,22 @@ const Cart = () => {
           <div className="md:col-span-2 space-y-4">
             {cart.map((item) => {
               const price = item.discounted_price || item.price;
+              // Obtener la primera imagen del array, luego image_url, luego placeholder
+              let imageUrl = null;
+              if (item.images && item.images.length > 0) {
+                // Si es un objeto con url
+                imageUrl = item.images[0].url || (typeof item.images[0] === 'string' ? item.images[0] : null);
+                // Si no tiene url pero tiene path
+                if (!imageUrl && item.images[0].path) {
+                  imageUrl = item.images[0].path;
+                }
+              }
+              if (!imageUrl) {
+                imageUrl = item.image_url;
+              }
+              const displayImage = imageUrl 
+                ? (imageUrl.startsWith('http') ? imageUrl : `${import.meta.env.VITE_API_URL}/storage/${imageUrl}`)
+                : '/placeholder.jpg';
               return (
                 <motion.div
                   key={item.id}
@@ -69,9 +85,12 @@ const Cart = () => {
                 >
                   <div className="flex gap-4">
                     <img
-                      src={item.image_url || '/placeholder.jpg'}
+                      src={displayImage}
                       alt={item.name}
                       className="w-24 h-24 object-cover rounded-2xl"
+                      onError={(e) => {
+                        e.target.src = '/placeholder.jpg';
+                      }}
                     />
                     <div className="flex-1">
                       <h3 className="font-bold text-lg text-gray-800 mb-2">{item.name}</h3>

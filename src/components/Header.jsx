@@ -46,8 +46,16 @@ const Header = () => {
     };
   }, [showUserMenu]);
 
-  const handleWhatsAppClick = () => {
-    const phoneNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '999999999';
+  const handleWhatsAppClick = async () => {
+    // Cargar número desde configuración
+    let phoneNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '999999999';
+    try {
+      const { settingsService } = await import('../services/settingsService');
+      const response = await settingsService.get('whatsapp_number');
+      phoneNumber = response.data.data?.value || phoneNumber;
+    } catch (error) {
+      console.error('Error al cargar número de WhatsApp:', error);
+    }
     const cleanPhone = phoneNumber.replace(/\D/g, '');
     const message = encodeURIComponent('¡Hola! Me gustaría obtener más información sobre FATMAC Shop');
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${message}`;

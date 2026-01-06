@@ -29,5 +29,12 @@ export const orderService = {
   updateStatus: (orderId, status) => {
     return api.patch(`/orders/${orderId}/status`, { status });
   },
+
+  // Obtener QR del vendedor (público)
+  getVendorQr: (vendorId, paymentMethod) => {
+    return api.get('/orders/vendor-qr', {
+      params: { vendor_id: vendorId, payment_method: paymentMethod },
+    });
+  },
 };
 

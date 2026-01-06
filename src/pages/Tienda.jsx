@@ -34,6 +34,13 @@ const Tienda = () => {
     if (hasDiscount === 'true') {
       initialFilters.has_discount = true;
     }
+    const vendorId = searchParams.get('vendor_id');
+    if (vendorId) {
+      const vendorIds = vendorId.split(',').map(id => parseInt(id)).filter(id => !isNaN(id));
+      if (vendorIds.length > 0) {
+        initialFilters.vendor_id = vendorIds.length === 1 ? vendorIds[0] : vendorIds;
+      }
+    }
     return initialFilters;
   });
   const [searchTerm, setSearchTerm] = useState(() => searchParams.get('search') || '');
@@ -92,6 +99,15 @@ const Tienda = () => {
       initialFilters.has_discount = true;
     }
     
+    // Leer vendor_id
+    const vendorId = searchParams.get('vendor_id');
+    if (vendorId) {
+      const vendorIds = vendorId.split(',').map(id => parseInt(id)).filter(id => !isNaN(id));
+      if (vendorIds.length > 0) {
+        initialFilters.vendor_id = vendorIds.length === 1 ? vendorIds[0] : vendorIds;
+      }
+    }
+    
     // Solo actualizar filtros si realmente cambiaron
     setFilters(prevFilters => {
       const filtersChanged = JSON.stringify(prevFilters) !== JSON.stringify(initialFilters);
@@ -106,6 +122,7 @@ const Tienda = () => {
     searchParams.get('max_price'),
     searchParams.get('is_new'),
     searchParams.get('has_discount'),
+    searchParams.get('vendor_id'),
   ]); // Solo dependencias específicas para evitar loops
 
   // Leer search y page de la URL solo cuando no viene del input
@@ -178,6 +195,13 @@ const Tienda = () => {
     
     if (newFilters.has_discount) {
       params.set('has_discount', 'true');
+    }
+    
+    if (newFilters.vendor_id) {
+      const vendorIds = Array.isArray(newFilters.vendor_id) 
+        ? newFilters.vendor_id 
+        : [newFilters.vendor_id];
+      params.set('vendor_id', vendorIds.join(','));
     }
     
     if (searchTerm) {

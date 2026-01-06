@@ -85,6 +85,22 @@ const CartSidebar = ({ isOpen, onClose }) => {
                 <div className="space-y-4">
                   {cart.map((item) => {
                     const price = item.discounted_price || item.price;
+                    // Obtener la primera imagen del array, luego image_url, luego placeholder
+                    let imageUrl = null;
+                    if (item.images && item.images.length > 0) {
+                      // Si es un objeto con url
+                      imageUrl = item.images[0].url || (typeof item.images[0] === 'string' ? item.images[0] : null);
+                      // Si no tiene url pero tiene path
+                      if (!imageUrl && item.images[0].path) {
+                        imageUrl = item.images[0].path;
+                      }
+                    }
+                    if (!imageUrl) {
+                      imageUrl = item.image_url;
+                    }
+                    const displayImage = imageUrl 
+                      ? (imageUrl.startsWith('http') ? imageUrl : `${import.meta.env.VITE_API_URL}/storage/${imageUrl}`)
+                      : '/placeholder.jpg';
                     return (
                       <motion.div
                         key={item.id}
@@ -94,9 +110,12 @@ const CartSidebar = ({ isOpen, onClose }) => {
                       >
                         <div className="flex gap-4">
                           <img
-                            src={item.image_url || '/placeholder.jpg'}
+                            src={displayImage}
                             alt={item.name}
                             className="w-20 h-20 object-cover rounded-xl"
+                            onError={(e) => {
+                              e.target.src = '/placeholder.jpg';
+                            }}
                           />
                           <div className="flex-1">
                             <h3 className="font-bold text-gray-800 mb-1 line-clamp-2">

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { dashboardService } from '../services/dashboardService';
 import PrivateRoute from '../components/PrivateRoute';
 import WhatsAppSettings from '../components/WhatsAppSettings';
+import LogoSettings from '../components/LogoSettings';
 
 const Dashboard = () => {
   const { user, isAdmin, isVendor } = useAuth();
@@ -303,15 +304,28 @@ const Dashboard = () => {
             </motion.div>
           )}
 
-          {/* Configuración de WhatsApp (solo admin) */}
+          {/* Configuraciones del Admin */}
           {isAdmin && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.9 }}
-            >
-              <WhatsAppSettings />
-            </motion.div>
+            <>
+              {/* Configuración del Logo (solo admin) */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.9 }}
+                className="mt-8 mb-8"
+              >
+                <LogoSettings />
+              </motion.div>
+
+              {/* Configuración de WhatsApp (solo admin) */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.0 }}
+              >
+                <WhatsAppSettings />
+              </motion.div>
+            </>
           )}
         </div>
       </div>

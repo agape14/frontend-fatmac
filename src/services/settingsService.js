@@ -15,5 +15,16 @@ export const settingsService = {
   update: (key, value) => {
     return api.put(`/settings/${key}`, { value });
   },
+
+  // Subir logo (solo admin)
+  uploadLogo: (logoFile) => {
+    const formData = new FormData();
+    formData.append('logo', logoFile);
+    return api.post('/settings/upload-logo', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 };
 

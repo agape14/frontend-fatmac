@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import CartSidebar from './CartSidebar';
 import TopBar from './TopBar';
+import { settingsService } from '../services/settingsService';
 
 const Header = () => {
   const location = useLocation();
@@ -21,6 +22,24 @@ const Header = () => {
   const cartCount = getCartCount();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef(null);
+  const [logoUrl, setLogoUrl] = useState('/logo-fatmac.png');
+
+  // Cargar logo desde settings
+  useEffect(() => {
+    const loadLogo = async () => {
+      try {
+        const response = await settingsService.get('logo_url');
+        const url = response.data.data?.value;
+        if (url) {
+          setLogoUrl(url);
+        }
+      } catch (error) {
+        console.error('Error al cargar logo:', error);
+        // Mantener el logo por defecto
+      }
+    };
+    loadLogo();
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -76,14 +95,19 @@ const Header = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 <img
-                  src="/logo-fatmac.png"
+                  src={logoUrl}
                   alt="FATMAC Shop"
                   className="h-20 w-auto object-contain"
                   onError={(e) => {
-                    e.target.style.display = 'none';
-                    const fallback = e.target.nextElementSibling;
-                    if (fallback) {
-                      fallback.classList.remove('hidden');
+                    // Si falla el logo desde settings, intentar con el default
+                    if (logoUrl !== '/logo-fatmac.png') {
+                      e.target.src = '/logo-fatmac.png';
+                    } else {
+                      e.target.style.display = 'none';
+                      const fallback = e.target.nextElementSibling;
+                      if (fallback) {
+                        fallback.classList.remove('hidden');
+                      }
                     }
                   }}
                 />

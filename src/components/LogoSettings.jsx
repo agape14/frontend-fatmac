@@ -6,21 +6,49 @@ import Swal from 'sweetalert2';
 const LogoSettings = () => {
   const [loading, setLoading] = useState(false);
   const [logoUrl, setLogoUrl] = useState('');
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] = useState('/logo-fatmac.png');
   const [file, setFile] = useState(null);
 
   useEffect(() => {
     loadLogo();
   }, []);
 
+  const getFullUrl = (url) => {
+    if (!url) return '/logo-fatmac.png';
+    
+    // Si ya es una URL absoluta completa
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      // En desarrollo local, corregir localhost sin puerto a localhost:8000
+      if (url.startsWith('http://localhost/') && !url.startsWith('http://localhost:')) {
+        return url.replace('http://localhost/', 'http://localhost:8000/');
+      }
+      // En producción, dejar la URL tal cual
+      return url;
+    }
+    
+    // Si es relativa, construir usando la URL base de la API
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    const baseUrl = apiUrl.replace('/api', '');
+    return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
   const loadLogo = async () => {
     try {
       const response = await settingsService.get('logo_url');
       const url = response.data.data?.value || '';
       setLogoUrl(url);
-      setPreview(url || '/logo-fatmac.png');
+      // Siempre establecer un preview válido
+      if (url) {
+        const fullUrl = getFullUrl(url);
+        console.log('URL del logo cargada:', url);
+        console.log('URL completa construida:', fullUrl);
+        setPreview(fullUrl);
+      } else {
+        setPreview('/logo-fatmac.png');
+      }
     } catch (error) {
       console.error('Error al cargar logo:', error);
+      setLogoUrl('');
       setPreview('/logo-fatmac.png');
     }
   };
@@ -81,13 +109,21 @@ const LogoSettings = () => {
 
     try {
       const response = await settingsService.uploadLogo(file);
-      setLogoUrl(response.data.data.url);
+      const newLogoUrl = response.data.data.url;
+      setLogoUrl(newLogoUrl);
+      setPreview(getFullUrl(newLogoUrl));
       setFile(null);
+      
+      // Disparar evento para que el Header recargue el logo (con un pequeño delay para asegurar que el backend haya procesado)
+      setTimeout(() => {
+        console.log('LogoSettings - Disparando evento logoUpdated');
+        window.dispatchEvent(new CustomEvent('logoUpdated', { detail: { logoUrl: newLogoUrl } }));
+      }, 300);
       
       await Swal.fire({
         icon: 'success',
         title: '¡Logo actualizado!',
-        text: 'El logo se ha actualizado exitosamente',
+        text: 'El logo se ha actualizado exitosamente. Se actualizará en el header en unos segundos.',
         confirmButtonText: 'Entendido',
         confirmButtonColor: '#a855f7',
         customClass: {
@@ -128,29 +164,41 @@ const LogoSettings = () => {
             Vista Previa del Logo
           </label>
           <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-            {preview && (
-              <img
-                src={preview}
-                alt="Preview del logo"
-                className="h-20 w-auto object-contain"
-                onError={(e) => {
-                  e.target.src = '/logo-fatmac.png';
-                }}
-              />
-            )}
+            <img
+              src={preview}
+              alt="Preview del logo"
+              className="h-20 w-auto object-contain"
+              onError={(e) => {
+                // Si falla, intentar con el logo por defecto solo si no es el mismo
+                const defaultLogo = '/logo-fatmac.png';
+                if (e.target.src !== defaultLogo && !e.target.src.includes(defaultLogo)) {
+                  console.warn('Error al cargar logo:', e.target.src);
+                  e.target.src = defaultLogo;
+                }
+              }}
+              onLoad={() => {
+                console.log('Logo cargado exitosamente:', preview);
+              }}
+            />
             <div className="flex-1">
               <p className="text-sm text-gray-600">
                 {file ? 'Nueva imagen seleccionada' : 'Logo actual'}
               </p>
-              {logoUrl && !file && (
-                <a
-                  href={logoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-purple-pastel hover:underline"
+              {!file && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Usar la misma función getFullUrl para construir la URL
+                    const urlToOpen = logoUrl ? getFullUrl(logoUrl) : '/logo-fatmac.png';
+                    console.log('Abriendo logo:', urlToOpen);
+                    // Abrir en nueva pestaña para evitar que React Router intercepte
+                    window.open(urlToOpen, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="text-xs text-purple-pastel hover:underline cursor-pointer bg-transparent border-none p-0 m-0 font-inherit text-left mt-1"
+                  style={{ textDecoration: 'none' }}
                 >
                   Ver logo actual →
-                </a>
+                </button>
               )}
             </div>
           </div>

@@ -23,22 +23,78 @@ const Header = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef(null);
   const [logoUrl, setLogoUrl] = useState('/logo-fatmac.png');
+  const [logoKey, setLogoKey] = useState(0); // Key para forzar recarga de imagen
+
+  // Función para corregir la URL del logo (igual que en LogoSettings)
+  const getFullLogoUrl = (url) => {
+    if (!url) return '/logo-fatmac.png';
+    
+    // Si ya es una URL absoluta completa
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      // En desarrollo local, corregir localhost sin puerto a localhost:8000
+      if (url.startsWith('http://localhost/') && !url.startsWith('http://localhost:')) {
+        return url.replace('http://localhost/', 'http://localhost:8000/');
+      }
+      // En producción, dejar la URL tal cual
+      return url;
+    }
+    
+    // Si es relativa, construir usando la URL base de la API
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    const baseUrl = apiUrl.replace('/api', '');
+    return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
 
   // Cargar logo desde settings
-  useEffect(() => {
-    const loadLogo = async () => {
-      try {
-        const response = await settingsService.get('logo_url');
-        const url = response.data.data?.value;
-        if (url) {
-          setLogoUrl(url);
+  const loadLogo = async (forceUpdate = false) => {
+    try {
+      const response = await settingsService.get('logo_url');
+      const url = response.data.data?.value;
+      if (url) {
+        // Corregir la URL
+        const fullUrl = getFullLogoUrl(url);
+        // Solo agregar timestamp si es una actualización forzada (cuando cambia el logo)
+        const urlWithCache = forceUpdate 
+          ? (fullUrl.includes('?') ? `${fullUrl}&t=${Date.now()}` : `${fullUrl}?t=${Date.now()}`)
+          : fullUrl;
+        
+        setLogoUrl(urlWithCache);
+        
+        // Solo actualizar el key si es una actualización forzada
+        if (forceUpdate) {
+          setLogoKey(prev => prev + 1);
+          console.log('Header - Logo actualizado:', urlWithCache);
         }
-      } catch (error) {
-        console.error('Error al cargar logo:', error);
-        // Mantener el logo por defecto
+      } else {
+        // Si no hay logo, usar el por defecto
+        setLogoUrl('/logo-fatmac.png');
       }
-    };
+    } catch (error) {
+      console.error('Error al cargar logo:', error);
+      // Mantener el logo por defecto
+      setLogoUrl('/logo-fatmac.png');
+    }
+  };
+
+  useEffect(() => {
+    // Cargar logo solo una vez al montar el componente
     loadLogo();
+    
+    // Escuchar evento personalizado cuando el logo cambia desde el Dashboard
+    const handleLogoUpdate = () => {
+      console.log('Header - Evento logoUpdated recibido, recargando logo...');
+      // Esperar un poco para asegurar que el backend haya guardado el cambio
+      // Pasar forceUpdate=true para forzar la recarga de la imagen
+      setTimeout(() => {
+        loadLogo(true);
+      }, 500);
+    };
+    
+    window.addEventListener('logoUpdated', handleLogoUpdate);
+    
+    return () => {
+      window.removeEventListener('logoUpdated', handleLogoUpdate);
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -95,12 +151,14 @@ const Header = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 <img
+                  key={logoKey}
                   src={logoUrl}
                   alt="FATMAC Shop"
                   className="h-20 w-auto object-contain"
                   onError={(e) => {
+                    console.error('Header - Error al cargar logo:', logoUrl);
                     // Si falla el logo desde settings, intentar con el default
-                    if (logoUrl !== '/logo-fatmac.png') {
+                    if (logoUrl && !logoUrl.includes('/logo-fatmac.png') && e.target.src !== '/logo-fatmac.png') {
                       e.target.src = '/logo-fatmac.png';
                     } else {
                       e.target.style.display = 'none';

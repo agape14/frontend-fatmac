@@ -6,6 +6,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
+  withCredentials: true, // Necesario para enviar cookies en peticiones cross-origin
 });
 
 // Interceptor para agregar el token de autenticación

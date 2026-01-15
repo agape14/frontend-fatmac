@@ -6,7 +6,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  withCredentials: true, // Necesario para enviar cookies en peticiones cross-origin
+  // No necesitamos withCredentials ya que usamos tokens Bearer en lugar de cookies
 });
 
 // Interceptor para agregar el token de autenticación
